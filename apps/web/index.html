@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EO Embeddings Mapper</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIINfQqoAMocT2nZ5Hlf9yXCC2dhfXyWmM="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260615-value" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Project controls">
+        <section class="brand-block">
+          <div>
+            <p class="eyebrow">AlphaEarth MVP</p>
+            <h1>Embeddings Mapper</h1>
+          </div>
+          <span class="status-dot" title="Prototype ready"></span>
+        </section>
+
+        <section class="control-section">
+          <label for="projectName">Project</label>
+          <input id="projectName" value="Indus Basin crop mapping" />
+
+          <div class="field-row">
+            <div>
+              <label for="yearSelect">Year</label>
+              <select id="yearSelect"></select>
+            </div>
+            <div>
+              <label for="modelSelect">Model</label>
+              <select id="modelSelect">
+                <option value="random_forest">Random Forest</option>
+                <option value="knn">kNN</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>Classes</h2>
+            <button id="addClassBtn" class="icon-button" title="Add class">+</button>
+          </div>
+          <div id="classList" class="class-list"></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-heading">
+            <h2>Samples</h2>
+            <span id="sampleCount" class="metric-pill">0</span>
+          </div>
+          <div class="button-row">
+            <button id="sampleModeBtn" class="primary-button">Label</button>
+            <button id="similarModeBtn">Similar</button>
+            <button id="changeModeBtn">Change</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <button id="trainBtn" class="train-button">Train Map</button>
+          <button id="exportBtn">Export GeoJSON</button>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div class="metric">
+            <span>Embedding source</span>
+            <strong>GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL</strong>
+          </div>
+          <div class="metric">
+            <span>Resolution</span>
+            <strong>10 m</strong>
+          </div>
+          <div class="metric">
+            <span>Bands</span>
+            <strong>64</strong>
+          </div>
+          <div class="metric">
+            <span>Mode</span>
+            <strong id="modeLabel">Label</strong>
+          </div>
+          <div class="metric">
+            <span>API</span>
+            <strong id="apiStatus">Checking</strong>
+          </div>
+        </header>
+
+        <div class="map-wrap">
+          <div id="map" aria-label="Interactive map"></div>
+          <div class="layer-switcher" aria-label="Layer controls">
+            <button id="satelliteLayerBtn" class="active" type="button">Satellite</button>
+            <button id="embeddingLayerBtn" class="active" type="button">Embeddings</button>
+            <button id="predictionLayerBtn" class="active" type="button">Predictions</button>
+          </div>
+          <div class="map-toolbar" aria-label="Map tools">
+            <button id="zoomInBtn" title="Zoom in">+</button>
+            <button id="zoomOutBtn" title="Zoom out">-</button>
+            <button id="resetBtn" title="Reset view">H</button>
+          </div>
+          <div id="toast" class="toast" role="status"></div>
+        </div>
+
+        <footer class="insight-panel">
+          <section>
+            <h2>Run</h2>
+            <div id="runSummary" class="summary-grid"></div>
+          </section>
+          <section>
+            <h2>Active Learning</h2>
+            <div id="activeLearningList" class="recommendations"></div>
+          </section>
+        </footer>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="./app.js?v=20260615-value"></script>
+  </body>
+</html>
