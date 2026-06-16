@@ -10,14 +10,14 @@
       integrity="sha256-p4NxAoJBhIINfQqoAMocT2nZ5Hlf9yXCC2dhfXyWmM="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=20260616-raster" />
+    <link rel="stylesheet" href="./styles.css?v=20260616-ui" />
   </head>
   <body>
     <main class="app-shell">
       <aside class="sidebar" aria-label="Project controls">
         <section class="brand-block">
           <div>
-            <p class="eyebrow">AlphaEarth MVP</p>
+            <p class="eyebrow">AlphaEarth Workbench</p>
             <h1>Embeddings Mapper</h1>
           </div>
           <span class="status-dot" title="Prototype ready"></span>
@@ -95,14 +95,34 @@
         <div class="map-wrap">
           <div id="map" aria-label="Interactive map"></div>
           <div class="layer-switcher" aria-label="Layer controls">
-            <button id="satelliteLayerBtn" class="active" type="button">Satellite</button>
-            <button id="embeddingLayerBtn" class="active" type="button">Embeddings</button>
-            <button id="predictionLayerBtn" class="active" type="button">Predictions</button>
+            <div class="layer-row">
+              <button id="satelliteLayerBtn" class="active" type="button">Satellite</button>
+              <input id="satelliteOpacity" type="range" min="0" max="100" value="92" />
+            </div>
+            <div class="layer-row">
+              <button id="embeddingLayerBtn" class="active" type="button">Embeddings</button>
+              <input id="embeddingOpacity" type="range" min="0" max="100" value="45" />
+            </div>
+            <div class="layer-row">
+              <button id="predictionLayerBtn" class="active" type="button">Predictions</button>
+              <input id="predictionOpacity" type="range" min="0" max="100" value="62" />
+            </div>
           </div>
           <div class="map-toolbar" aria-label="Map tools">
             <button id="zoomInBtn" title="Zoom in">+</button>
             <button id="zoomOutBtn" title="Zoom out">-</button>
             <button id="resetBtn" title="Reset view">H</button>
+          </div>
+          <div class="legend-panel" aria-label="Map legend">
+            <div class="legend-header">
+              <span>Legend</span>
+              <strong id="legendMode">Classes</strong>
+            </div>
+            <div id="legendList" class="legend-list"></div>
+          </div>
+          <div class="map-status" aria-label="Map status">
+            <span id="cursorReadout">Lat --, Lon --</span>
+            <span id="zoomReadout">Zoom --</span>
           </div>
           <div id="toast" class="toast" role="status"></div>
         </div>
@@ -125,6 +145,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=20260616-raster"></script>
+    <script src="./app.js?v=20260616-ui"></script>
   </body>
 </html>

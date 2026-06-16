@@ -9,6 +9,10 @@ const state = {
   lastRun: null,
   map: null,
   baseLayer: null,
+  satelliteTile: null,
+  embeddingTile: null,
+  predictionTile: null,
+  similarityTile: null,
   satelliteLayer: null,
   embeddingLayer: null,
   sampleLayer: null,
@@ -34,6 +38,10 @@ const els = {
   apiStatus: document.querySelector("#apiStatus"),
   runSummary: document.querySelector("#runSummary"),
   activeLearningList: document.querySelector("#activeLearningList"),
+  legendList: document.querySelector("#legendList"),
+  legendMode: document.querySelector("#legendMode"),
+  cursorReadout: document.querySelector("#cursorReadout"),
+  zoomReadout: document.querySelector("#zoomReadout"),
   toast: document.querySelector("#toast"),
 };
 
@@ -76,6 +84,9 @@ function initMap() {
     if (state.mode === "similar") addSimilarityTarget(event.latlng);
     if (state.mode === "change") addChangeTarget(event.latlng);
   });
+  state.map.on("mousemove", (event) => updateMapStatus(event.latlng));
+  state.map.on("zoomend moveend", () => updateMapStatus());
+  updateMapStatus();
 }
 
 function bindEvents() {
@@ -102,6 +113,16 @@ function bindEvents() {
   document.querySelector("#satelliteLayerBtn").addEventListener("click", () => toggleLayer("satellite"));
   document.querySelector("#embeddingLayerBtn").addEventListener("click", () => toggleLayer("embedding"));
   document.querySelector("#predictionLayerBtn").addEventListener("click", () => toggleLayer("prediction"));
+  document.querySelector("#satelliteOpacity").addEventListener("input", (event) => {
+    setTileOpacity(state.satelliteTile, event.target.value);
+  });
+  document.querySelector("#embeddingOpacity").addEventListener("input", (event) => {
+    setTileOpacity(state.embeddingTile, event.target.value);
+  });
+  document.querySelector("#predictionOpacity").addEventListener("input", (event) => {
+    setTileOpacity(state.predictionTile, event.target.value);
+    setTileOpacity(state.similarityTile, event.target.value);
+  });
 }
 
 function toggleLayer(layerName) {
@@ -124,6 +145,12 @@ function setMode(mode) {
   state.mode = mode;
   updateUi();
   showToast(`${titleCase(mode)} mode`);
+}
+
+function updateMapStatus(latlng = null) {
+  const center = latlng || state.map.getCenter();
+  els.cursorReadout.textContent = `Lat ${center.lat.toFixed(4)}, Lon ${center.lng.toFixed(4)}`;
+  els.zoomReadout.textContent = `Zoom ${state.map.getZoom()}`;
 }
 
 function resetView() {
@@ -259,13 +286,17 @@ async function addSimilarityTarget(latlng) {
 }
 
 function drawSimilarityTile(tileUrl) {
-  L.tileLayer(tileUrl, {
-    opacity: 0.62,
+  state.similarityTile = L.tileLayer(tileUrl, {
+    opacity: getOpacityValue("predictionOpacity"),
     attribution: "AlphaEarth similarity via Google Earth Engine",
-  }).addTo(state.similarityLayer);
+  });
+  state.similarityTile.addTo(state.similarityLayer);
+  els.legendMode.textContent = "Similarity";
+  drawSimilarityLegend();
 }
 
 function drawSimilarityGrid(features) {
+  state.similarityTile = null;
   L.geoJSON(features, {
     style: (feature) => {
       const score = Number(feature.properties.similarity || 0);
@@ -280,6 +311,8 @@ function drawSimilarityGrid(features) {
       layer.bindPopup(`Embedding similarity: ${feature.properties.similarity}`);
     },
   }).addTo(state.similarityLayer);
+  els.legendMode.textContent = "Similarity";
+  drawSimilarityLegend();
 }
 
 function addChangeTarget(latlng) {
@@ -362,6 +395,7 @@ async function trainMap() {
 
 function drawPredictionGrid(features) {
   state.predictionLayer.clearLayers();
+  state.predictionTile = null;
   L.geoJSON(features, {
     style: (feature) => {
       const classId = feature.properties.class_id;
@@ -379,14 +413,19 @@ function drawPredictionGrid(features) {
       );
     },
   }).addTo(state.predictionLayer);
+  els.legendMode.textContent = "Classes";
+  drawLegend();
 }
 
 function drawClassificationTile(tileUrl) {
   state.predictionLayer.clearLayers();
-  L.tileLayer(tileUrl, {
-    opacity: 0.58,
+  state.predictionTile = L.tileLayer(tileUrl, {
+    opacity: getOpacityValue("predictionOpacity"),
     attribution: "AlphaEarth classification via Google Earth Engine",
-  }).addTo(state.predictionLayer);
+  });
+  state.predictionTile.addTo(state.predictionLayer);
+  els.legendMode.textContent = "Classes";
+  drawLegend();
 }
 
 function exportGeoJson() {
@@ -498,18 +537,62 @@ function updateUi() {
       return node;
     }),
   );
+  drawLegend();
+}
+
+function drawLegend() {
+  els.legendMode.textContent = state.mode === "similar" ? "Similarity" : "Classes";
+  if (state.mode === "similar") {
+    drawSimilarityLegend();
+    return;
+  }
+
+  els.legendList.replaceChildren(
+    ...state.classes.map((item) => {
+      const count = state.samples.filter((sample) => sample.classId === item.id).length;
+      const node = document.createElement("div");
+      node.className = "legend-item";
+      node.innerHTML = `
+        <span class="swatch" style="background:${item.color}"></span>
+        <span class="legend-label">${item.name}</span>
+        <span class="legend-count">${count}</span>
+      `;
+      return node;
+    }),
+  );
+}
+
+function drawSimilarityLegend() {
+  const items = [
+    ["High", "#f25f5c"],
+    ["Medium", "#39a66b"],
+    ["Low", "#315c9f"],
+  ];
+  els.legendList.replaceChildren(
+    ...items.map(([label, color]) => {
+      const node = document.createElement("div");
+      node.className = "legend-item";
+      node.innerHTML = `
+        <span class="swatch" style="background:${color}"></span>
+        <span class="legend-label">${label}</span>
+        <span class="legend-count"></span>
+      `;
+      return node;
+    }),
+  );
 }
 
 async function loadEmbeddingLayer() {
   state.embeddingLayer.clearLayers();
+  state.embeddingTile = null;
   if (!state.apiOnline) return;
   try {
     const payload = await apiRequest(`/earth-engine/alphaearth-tiles?year=${state.year}`);
-    const layer = L.tileLayer(payload.tile_url, {
-      opacity: 0.55,
+    state.embeddingTile = L.tileLayer(payload.tile_url, {
+      opacity: getOpacityValue("embeddingOpacity"),
       attribution: "AlphaEarth Satellite Embeddings via Google Earth Engine",
     });
-    layer.addTo(state.embeddingLayer);
+    state.embeddingTile.addTo(state.embeddingLayer);
     showToast("AlphaEarth embedding layer loaded");
   } catch (error) {
     showToast("Embedding tiles unavailable");
@@ -518,17 +601,28 @@ async function loadEmbeddingLayer() {
 
 async function loadSatelliteLayer() {
   state.satelliteLayer.clearLayers();
+  state.satelliteTile = null;
   if (!state.apiOnline) return;
   try {
     const payload = await apiRequest(`/earth-engine/sentinel2-tiles?year=${state.year}`);
-    const layer = L.tileLayer(payload.tile_url, {
-      opacity: 0.92,
+    state.satelliteTile = L.tileLayer(payload.tile_url, {
+      opacity: getOpacityValue("satelliteOpacity"),
       attribution: "Sentinel-2 via Google Earth Engine",
     });
-    layer.addTo(state.satelliteLayer);
+    state.satelliteTile.addTo(state.satelliteLayer);
   } catch (error) {
     showToast("Satellite tiles unavailable");
   }
+}
+
+function getOpacityValue(inputId) {
+  const input = document.querySelector(`#${inputId}`);
+  return Number(input.value) / 100;
+}
+
+function setTileOpacity(tile, value) {
+  if (!tile) return;
+  tile.setOpacity(Number(value) / 100);
 }
 
 async function connectApi() {
