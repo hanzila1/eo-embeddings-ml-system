@@ -71,6 +71,45 @@ var dot = image.select(bands)
   .arrayGet([0]);
 ```
 
+### Similarity Tile Layer
+
+The backend can visualize a continuous similarity layer by multiplying every AlphaEarth pixel vector by the clicked prototype vector and reducing by sum:
+
+```javascript
+var prototypeImage = ee.Image.constant(prototype).rename(bands);
+var similarity = image.select(bands)
+  .multiply(prototypeImage)
+  .reduce(ee.Reducer.sum());
+```
+
+Because vectors are unit-length, this is cosine similarity. The frontend can display the returned Earth Engine tile URL as a heatmap layer.
+
+### Classification Tile Layer
+
+The backend can train an Earth Engine Random Forest from user-clicked point labels:
+
+```javascript
+var training = image.select(bands).sampleRegions({
+  collection: labels,
+  properties: ["class_value"],
+  scale: 10,
+  geometries: false
+});
+
+var classifier = ee.Classifier.smileRandomForest({
+  numberOfTrees: 120,
+  minLeafPopulation: 1
+}).train({
+  features: training,
+  classProperty: "class_value",
+  inputProperties: bands
+});
+
+var classified = image.select(bands).classify(classifier);
+```
+
+This produces a real raster-style map tile rather than a coarse preview grid.
+
 ### Change Detection
 
 ```javascript
@@ -114,5 +153,7 @@ Authentication is required once per local account. The project ID alone is not e
 - `POST /projects/{id}/train`
 - `GET /projects/{id}/runs/{run_id}`
 - `POST /projects/{id}/similarity`
+- `POST /projects/{id}/similarity-tiles`
+- `POST /projects/{id}/classification-tiles`
 - `POST /projects/{id}/change`
 - `POST /projects/{id}/exports`

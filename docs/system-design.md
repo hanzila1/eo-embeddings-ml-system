@@ -55,6 +55,17 @@ Target formats:
 - Earth Engine script for reproducible server-side workflows.
 - QGIS project later.
 
+### 7. Raster Tile Layers
+
+The MVP supports real Earth Engine map tiles:
+
+- Sentinel-2 true-color imagery for visual context.
+- AlphaEarth embedding RGB visualization.
+- Continuous similarity layers from a clicked prototype point.
+- Classification layers trained from user labels with Earth Engine Random Forest.
+
+Grid endpoints remain useful as debug previews, but production UX should prefer tile layers and exports.
+
 ## Reference Architecture
 
 ```mermaid

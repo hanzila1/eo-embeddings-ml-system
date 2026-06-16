@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.schemas import (
     ChangeRequest,
+    ClassificationTileRequest,
     PredictGridRequest,
     Project,
     ProjectCreate,
@@ -12,6 +13,7 @@ from app.schemas import (
     SampleCreate,
     SimilarityGridRequest,
     SimilarityRequest,
+    SimilarityTileRequest,
     TrainRequest,
     TrainRun,
 )
@@ -247,6 +249,33 @@ def similarity_grid(project_id: UUID, payload: SimilarityGridRequest) -> dict[st
     }
 
 
+@app.post("/projects/{project_id}/similarity-tiles")
+def similarity_tiles(project_id: UUID, payload: SimilarityTileRequest) -> dict[str, object]:
+    if project_id not in projects:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        tile_url = earth_engine_sampler.similarity_tile_url(
+            prototype_geometry=payload.geometry,
+            year=payload.year,
+            bbox=payload.bbox,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {
+        "project_id": project_id,
+        "year": payload.year,
+        "source_mode": "earth_engine",
+        "tile_url": tile_url,
+        "visualization": {
+            "metric": "cosine_similarity",
+            "min": 0.35,
+            "max": 0.92,
+        },
+    }
+
+
 @app.post("/projects/{project_id}/change")
 def change(project_id: UUID, payload: ChangeRequest) -> dict[str, object]:
     if project_id not in projects:
@@ -340,6 +369,28 @@ def predict_grid(project_id: UUID, payload: PredictGridRequest) -> dict[str, obj
         "cols": payload.cols,
         "feature_count": len(features),
         "features": features,
+    }
+
+
+@app.post("/projects/{project_id}/classification-tiles")
+def classification_tiles(project_id: UUID, payload: ClassificationTileRequest) -> dict[str, object]:
+    if project_id not in projects:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        result = earth_engine_sampler.classification_tile_url(
+            training_samples=samples[project_id],
+            year=payload.year,
+            bbox=payload.bbox,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {
+        "project_id": project_id,
+        "year": payload.year,
+        "source_mode": "earth_engine",
+        **result,
     }
 
 

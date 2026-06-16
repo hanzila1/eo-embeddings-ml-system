@@ -19,6 +19,15 @@ The first product is a Few-Shot Embedding Mapper:
 5. Render map, confidence, uncertainty, and active-learning suggestions.
 6. Export GeoTIFF, GeoJSON, or an Earth Engine script.
 
+Current live capabilities:
+
+- Sentinel-2 true-color context tiles from Earth Engine.
+- AlphaEarth embedding visualization tiles.
+- Click-based AlphaEarth vector sampling.
+- Continuous embedding-similarity tile layers for "show me more places like this".
+- Earth Engine Random Forest classification tiles trained from user labels.
+- Coarse grid fallbacks for debugging and fast previews.
+
 ## Quick Start
 
 Open the static prototype:
