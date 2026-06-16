@@ -122,12 +122,7 @@ class EarthEngineEmbeddingSampler:
         ee = self._import_ee()
         self._initialize(ee)
 
-        image = (
-            ee.ImageCollection(ALPHAEARTH_COLLECTION)
-            .filterDate(f"{year}-01-01", f"{year + 1}-01-01")
-            .mosaic()
-            .select(ALPHAEARTH_BANDS)
-        )
+        image = self._annual_embedding_image(ee, year)
         visual = image.visualize(
             bands=["A02", "A01", "A00"],
             min=-0.3,
@@ -136,6 +131,98 @@ class EarthEngineEmbeddingSampler:
         )
         map_id = visual.getMapId()
         return map_id["tile_fetcher"].url_format
+
+    def similarity_tile_url(
+        self,
+        prototype_geometry: dict[str, Any],
+        year: int,
+        bbox: list[float] | None = None,
+    ) -> str:
+        ee = self._import_ee()
+        self._initialize(ee)
+
+        prototype = self.sample_geojson(prototype_geometry, year)
+        image = self._annual_embedding_image(ee, year)
+        prototype_image = ee.Image.constant(prototype).rename(ALPHAEARTH_BANDS)
+        similarity = image.multiply(prototype_image).reduce(ee.Reducer.sum()).rename("similarity")
+        if bbox:
+            similarity = similarity.clip(self._bbox_to_geometry(ee, bbox))
+
+        visual = similarity.visualize(
+            min=0.35,
+            max=0.92,
+            palette=["1b1b1b", "314d8f", "39a66b", "f4d35e", "f25f5c"],
+        )
+        map_id = visual.getMapId()
+        return map_id["tile_fetcher"].url_format
+
+    def classification_tile_url(
+        self,
+        training_samples: list[Any],
+        year: int,
+        bbox: list[float] | None = None,
+    ) -> dict[str, Any]:
+        ee = self._import_ee()
+        self._initialize(ee)
+
+        class_ids = []
+        for sample in training_samples:
+            if sample.class_id not in class_ids:
+                class_ids.append(sample.class_id)
+        if len(class_ids) < 2:
+            raise ValueError("At least two classes are required for a classification tile.")
+
+        class_values = {class_id: idx for idx, class_id in enumerate(class_ids)}
+        features = []
+        for sample in training_samples:
+            features.append(
+                ee.Feature(
+                    self._to_ee_geometry(ee, sample.geometry),
+                    {
+                        "class_value": class_values[sample.class_id],
+                        "class_id": sample.class_id,
+                    },
+                )
+            )
+        labels = ee.FeatureCollection(features)
+
+        image = self._annual_embedding_image(ee, year)
+        training = image.sampleRegions(
+            collection=labels,
+            properties=["class_value"],
+            scale=10,
+            geometries=False,
+        )
+        classifier = ee.Classifier.smileRandomForest(
+            numberOfTrees=120,
+            minLeafPopulation=1,
+        ).train(
+            features=training,
+            classProperty="class_value",
+            inputProperties=ALPHAEARTH_BANDS,
+        )
+        classified = image.classify(classifier).rename("class")
+        if bbox:
+            classified = classified.clip(self._bbox_to_geometry(ee, bbox))
+
+        palette = ["217a57", "0d6f7b", "b77b1f", "b54b43", "315c9f", "6a7d39", "8b4f8f"]
+        visual = classified.visualize(
+            min=0,
+            max=max(1, len(class_ids) - 1),
+            palette=palette[: len(class_ids)],
+        )
+        map_id = visual.getMapId()
+        return {
+            "tile_url": map_id["tile_fetcher"].url_format,
+            "legend": [
+                {
+                    "class_id": class_id,
+                    "class_value": class_values[class_id],
+                    "color": f"#{palette[class_values[class_id] % len(palette)]}",
+                }
+                for class_id in class_ids
+            ],
+        }
 
     def sentinel2_tile_url(self, year: int) -> str:
         ee = self._import_ee()
@@ -156,6 +243,20 @@ class EarthEngineEmbeddingSampler:
         )
         map_id = visual.getMapId()
         return map_id["tile_fetcher"].url_format
+
+    @staticmethod
+    def _annual_embedding_image(ee: Any, year: int) -> Any:
+        return (
+            ee.ImageCollection(ALPHAEARTH_COLLECTION)
+            .filterDate(f"{year}-01-01", f"{year + 1}-01-01")
+            .mosaic()
+            .select(ALPHAEARTH_BANDS)
+        )
+
+    @staticmethod
+    def _bbox_to_geometry(ee: Any, bbox: list[float]) -> Any:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        return ee.Geometry.Rectangle([min_lon, min_lat, max_lon, max_lat], proj="EPSG:4326")
 
     def _initialize(self, ee: Any) -> None:
         if self._initialized:

@@ -59,6 +59,17 @@ class SimilarityGridRequest(BaseModel):
     year: int = Field(ge=2017, le=2024, default=2024)
 
 
+class SimilarityTileRequest(BaseModel):
+    geometry: dict[str, Any]
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="[min_lon, min_lat, max_lon, max_lat]",
+    )
+    year: int = Field(ge=2017, le=2024, default=2024)
+
+
 class ChangeRequest(BaseModel):
     start_year: int = Field(ge=2017, le=2024)
     end_year: int = Field(ge=2017, le=2024)
@@ -75,3 +86,13 @@ class PredictGridRequest(BaseModel):
     cols: int = Field(default=8, ge=2, le=20)
     year: int = Field(ge=2017, le=2024, default=2024)
     model_type: Literal["knn", "random_forest"] = "random_forest"
+
+
+class ClassificationTileRequest(BaseModel):
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="[min_lon, min_lat, max_lon, max_lat]",
+    )
+    year: int = Field(ge=2017, le=2024, default=2024)

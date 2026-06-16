@@ -66,7 +66,7 @@ function initMap() {
 
   state.satelliteLayer = L.layerGroup().addTo(state.map);
   state.embeddingLayer = L.layerGroup().addTo(state.map);
-  state.predictionLayer = L.geoJSON(null).addTo(state.map);
+  state.predictionLayer = L.layerGroup().addTo(state.map);
   state.sampleLayer = L.layerGroup().addTo(state.map);
   state.similarityLayer = L.layerGroup().addTo(state.map);
   state.changeLayer = L.layerGroup().addTo(state.map);
@@ -211,7 +211,7 @@ async function addSimilarityTarget(latlng) {
   }
   try {
     const bounds = state.map.getBounds();
-    const payload = await apiRequest(`/projects/${state.projectId}/similarity-grid`, {
+    const payload = await apiRequest(`/projects/${state.projectId}/similarity-tiles`, {
       method: "POST",
       body: JSON.stringify({
         geometry: {
@@ -224,16 +224,45 @@ async function addSimilarityTarget(latlng) {
           bounds.getEast(),
           bounds.getNorth(),
         ],
-        rows: 10,
-        cols: 10,
         year: state.year,
       }),
     });
-    drawSimilarityGrid(payload.features || []);
-    showToast("Similarity map updated");
+    drawSimilarityTile(payload.tile_url);
+    showToast("Continuous similarity layer updated");
   } catch (error) {
-    showToast("Similarity search failed");
+    try {
+      const bounds = state.map.getBounds();
+      const payload = await apiRequest(`/projects/${state.projectId}/similarity-grid`, {
+        method: "POST",
+        body: JSON.stringify({
+          geometry: {
+            type: "Point",
+            coordinates: [latlng.lng, latlng.lat],
+          },
+          bbox: [
+            bounds.getWest(),
+            bounds.getSouth(),
+            bounds.getEast(),
+            bounds.getNorth(),
+          ],
+          rows: 10,
+          cols: 10,
+          year: state.year,
+        }),
+      });
+      drawSimilarityGrid(payload.features || []);
+      showToast("Similarity preview grid updated");
+    } catch {
+      showToast("Similarity search failed");
+    }
   }
+}
+
+function drawSimilarityTile(tileUrl) {
+  L.tileLayer(tileUrl, {
+    opacity: 0.62,
+    attribution: "AlphaEarth similarity via Google Earth Engine",
+  }).addTo(state.similarityLayer);
 }
 
 function drawSimilarityGrid(features) {
@@ -282,7 +311,7 @@ async function trainMap() {
         }),
       });
       const bounds = state.map.getBounds();
-      const grid = await apiRequest(`/projects/${state.projectId}/predict-grid`, {
+      const classification = await apiRequest(`/projects/${state.projectId}/classification-tiles`, {
         method: "POST",
         body: JSON.stringify({
           bbox: [
@@ -291,19 +320,37 @@ async function trainMap() {
             bounds.getEast(),
             bounds.getNorth(),
           ],
-          rows: 10,
-          cols: 10,
           year: state.year,
-          model_type: els.modelSelect.value,
         }),
       });
-      drawPredictionGrid(grid.features || []);
+      drawClassificationTile(classification.tile_url);
     } catch (error) {
-      state.apiOnline = false;
-      state.lastRun = null;
-      updateUi();
-      showToast("API prediction failed");
-      return;
+      try {
+        const bounds = state.map.getBounds();
+        const grid = await apiRequest(`/projects/${state.projectId}/predict-grid`, {
+          method: "POST",
+          body: JSON.stringify({
+            bbox: [
+              bounds.getWest(),
+              bounds.getSouth(),
+              bounds.getEast(),
+              bounds.getNorth(),
+            ],
+            rows: 10,
+            cols: 10,
+            year: state.year,
+            model_type: els.modelSelect.value,
+          }),
+        });
+        drawPredictionGrid(grid.features || []);
+        showToast("Prediction preview grid updated");
+      } catch {
+        state.apiOnline = false;
+        state.lastRun = null;
+        updateUi();
+        showToast("API prediction failed");
+        return;
+      }
     }
   }
 
@@ -315,7 +362,7 @@ async function trainMap() {
 
 function drawPredictionGrid(features) {
   state.predictionLayer.clearLayers();
-  state.predictionLayer = L.geoJSON(features, {
+  L.geoJSON(features, {
     style: (feature) => {
       const classId = feature.properties.class_id;
       const sampleClass = state.classes.find((item) => item.id === classId);
@@ -331,7 +378,15 @@ function drawPredictionGrid(features) {
         `${feature.properties.class_name}<br>Confidence: ${feature.properties.confidence}`,
       );
     },
-  }).addTo(state.map);
+  }).addTo(state.predictionLayer);
+}
+
+function drawClassificationTile(tileUrl) {
+  state.predictionLayer.clearLayers();
+  L.tileLayer(tileUrl, {
+    opacity: 0.58,
+    attribution: "AlphaEarth classification via Google Earth Engine",
+  }).addTo(state.predictionLayer);
 }
 
 function exportGeoJson() {
