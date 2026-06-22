@@ -23,4 +23,11 @@ Expected variables later:
 ```text
 GOOGLE_APPLICATION_CREDENTIALS=
 EARTH_ENGINE_PROJECT=
+EO_MAPPER_DATA_DIR=
+```
+
+By default, SQLite project/sample data is stored at:
+
+```text
+apps/api/data/eo_mapper.sqlite
 ```

@@ -20,6 +20,7 @@ from app.schemas import (
 from app.services.embeddings import EmbeddingSampler
 from app.services.earth_engine import EarthEngineEmbeddingSampler
 from app.services.models import FewShotTrainer
+from app.storage import SqliteStore
 
 
 app = FastAPI(title="EO Embeddings API", version="0.1.0")
@@ -31,19 +32,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-projects: dict[UUID, Project] = {}
-samples: dict[UUID, list[Sample]] = {}
-sample_vectors: dict[UUID, list[float]] = {}
 train_runs: dict[UUID, TrainRun] = {}
 
+store = SqliteStore()
+store.initialize()
 sampler = EmbeddingSampler()
 earth_engine_sampler = EarthEngineEmbeddingSampler()
 trainer = FewShotTrainer()
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, object]:
+    return {"status": "ok", "store": store.counts()}
 
 
 @app.get("/")
@@ -110,37 +110,41 @@ def sentinel2_tiles(year: int = 2024) -> dict[str, object]:
 @app.post("/projects", response_model=Project)
 def create_project(payload: ProjectCreate) -> Project:
     project = Project(id=uuid4(), **payload.model_dump())
-    projects[project.id] = project
-    samples[project.id] = []
+    store.create_project(project)
     return project
 
 
 @app.get("/projects", response_model=list[Project])
 def list_projects() -> list[Project]:
-    return list(projects.values())
+    return store.list_projects()
+
+
+@app.get("/projects/{project_id}", response_model=Project)
+def get_project(project_id: UUID) -> Project:
+    return _get_project_or_404(project_id)
 
 
 @app.post("/projects/{project_id}/samples", response_model=Sample)
 def add_sample(project_id: UUID, payload: SampleCreate) -> Sample:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = _get_project_or_404(project_id)
 
     sample = Sample(id=uuid4(), project_id=project_id, **payload.model_dump())
-    samples[project_id].append(sample)
-    year = payload.year or projects[project_id].year
+    year = payload.year or project.year
+    vector_source = "earth_engine"
     try:
-        sample_vectors[sample.id] = earth_engine_sampler.sample_geojson(payload.geometry, year)
-    except Exception:
-        sample_vectors[sample.id] = sampler.sample_geojson(payload.geometry, year)
+        vector = earth_engine_sampler.sample_geojson(payload.geometry, year)
+    except Exception as exc:
+        vector_source = f"placeholder: {exc}"
+        vector = sampler.sample_geojson(payload.geometry, year)
+    store.add_sample(sample, vector=vector, vector_source=vector_source)
     return sample
 
 
 @app.post("/projects/{project_id}/samples/vector")
 def sample_vector(project_id: UUID, payload: SampleCreate) -> dict[str, object]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    project = _get_project_or_404(project_id)
 
-    year = payload.year or projects[project_id].year
+    year = payload.year or project.year
     source_mode = "earth_engine"
     try:
         vector = earth_engine_sampler.sample_geojson(payload.geometry, year)
@@ -162,25 +166,27 @@ def sample_vector(project_id: UUID, payload: SampleCreate) -> dict[str, object]:
 
 @app.get("/projects/{project_id}/samples", response_model=list[Sample])
 def list_samples(project_id: UUID) -> list[Sample]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return samples[project_id]
+    _get_project_or_404(project_id)
+    return store.list_samples(project_id)
 
 
 @app.post("/projects/{project_id}/train", response_model=TrainRun)
 def train(project_id: UUID, payload: TrainRequest) -> TrainRun:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    _get_project_or_404(project_id)
 
-    result = trainer.train(project_id, samples[project_id], payload.model_type, sample_vectors)
+    result = trainer.train(
+        project_id,
+        store.list_samples(project_id),
+        payload.model_type,
+        store.sample_vectors(project_id),
+    )
     train_runs[result.run.id] = result.run
     return result.run
 
 
 @app.post("/projects/{project_id}/similarity")
 def similarity(project_id: UUID, payload: SimilarityRequest) -> dict[str, object]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    _get_project_or_404(project_id)
 
     vector = sampler.sample_geojson(payload.geometry, payload.year)
     return {
@@ -193,8 +199,7 @@ def similarity(project_id: UUID, payload: SimilarityRequest) -> dict[str, object
 
 @app.post("/projects/{project_id}/similarity-grid")
 def similarity_grid(project_id: UUID, payload: SimilarityGridRequest) -> dict[str, object]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    _get_project_or_404(project_id)
 
     min_lon, min_lat, max_lon, max_lat = payload.bbox
     if min_lon >= max_lon or min_lat >= max_lat:
@@ -251,8 +256,7 @@ def similarity_grid(project_id: UUID, payload: SimilarityGridRequest) -> dict[st
 
 @app.post("/projects/{project_id}/similarity-tiles")
 def similarity_tiles(project_id: UUID, payload: SimilarityTileRequest) -> dict[str, object]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    _get_project_or_404(project_id)
 
     try:
         tile_url = earth_engine_sampler.similarity_tile_url(
@@ -278,8 +282,7 @@ def similarity_tiles(project_id: UUID, payload: SimilarityTileRequest) -> dict[s
 
 @app.post("/projects/{project_id}/change")
 def change(project_id: UUID, payload: ChangeRequest) -> dict[str, object]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    _get_project_or_404(project_id)
     if payload.start_year >= payload.end_year:
         raise HTTPException(status_code=400, detail="start_year must be before end_year")
 
@@ -294,8 +297,8 @@ def change(project_id: UUID, payload: ChangeRequest) -> dict[str, object]:
 
 @app.post("/projects/{project_id}/predict-grid")
 def predict_grid(project_id: UUID, payload: PredictGridRequest) -> dict[str, object]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    _get_project_or_404(project_id)
+    project_samples = store.list_samples(project_id)
 
     min_lon, min_lat, max_lon, max_lat = payload.bbox
     if min_lon >= max_lon or min_lat >= max_lat:
@@ -330,8 +333,8 @@ def predict_grid(project_id: UUID, payload: PredictGridRequest) -> dict[str, obj
 
     try:
         predictions = trainer.predict_vectors(
-            samples[project_id],
-            sample_vectors,
+            project_samples,
+            store.sample_vectors(project_id),
             valid_vectors,
             payload.model_type,
         )
@@ -340,7 +343,7 @@ def predict_grid(project_id: UUID, payload: PredictGridRequest) -> dict[str, obj
 
     class_lookup = {
         sample.class_id: sample.class_name
-        for sample in samples[project_id]
+        for sample in project_samples
     }
     features = []
     for cell, prediction in zip(valid_cells, predictions):
@@ -374,12 +377,11 @@ def predict_grid(project_id: UUID, payload: PredictGridRequest) -> dict[str, obj
 
 @app.post("/projects/{project_id}/classification-tiles")
 def classification_tiles(project_id: UUID, payload: ClassificationTileRequest) -> dict[str, object]:
-    if project_id not in projects:
-        raise HTTPException(status_code=404, detail="Project not found")
+    _get_project_or_404(project_id)
 
     try:
         result = earth_engine_sampler.classification_tile_url(
-            training_samples=samples[project_id],
+            training_samples=store.list_samples(project_id),
             year=payload.year,
             bbox=payload.bbox,
         )
@@ -392,6 +394,13 @@ def classification_tiles(project_id: UUID, payload: ClassificationTileRequest) -
         "source_mode": "earth_engine",
         **result,
     }
+
+
+def _get_project_or_404(project_id: UUID) -> Project:
+    project = store.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
 
 
 def _build_grid(

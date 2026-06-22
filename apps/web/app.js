@@ -57,6 +57,7 @@ async function init() {
   bindEvents();
   updateUi();
   await connectApi();
+  await loadProjectSamples();
   await loadSatelliteLayer();
   await loadEmbeddingLayer();
 }
@@ -96,6 +97,7 @@ function bindEvents() {
     state.trained = false;
     state.predictionLayer.clearLayers();
     await connectApi();
+    await loadProjectSamples();
     await loadSatelliteLayer();
     await loadEmbeddingLayer();
     showToast(`Year set to ${state.year}`);
@@ -630,21 +632,68 @@ async function connectApi() {
     const health = await apiRequest("/health", { method: "GET" });
     state.apiOnline = health.status === "ok";
     if (state.apiOnline) {
-      const project = await apiRequest("/projects", {
-        method: "POST",
-        body: JSON.stringify({
-          name: document.querySelector("#projectName").value,
-          year: state.year,
-          embedding_source: "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL",
-        }),
-      });
+      const storageKey = getProjectStorageKey();
+      const savedProjectId = window.localStorage.getItem(storageKey);
+      let project = null;
+      if (savedProjectId) {
+        try {
+          project = await apiRequest(`/projects/${savedProjectId}`, { method: "GET" });
+        } catch {
+          window.localStorage.removeItem(storageKey);
+        }
+      }
+      if (!project) {
+        project = await apiRequest("/projects", {
+          method: "POST",
+          body: JSON.stringify({
+            name: document.querySelector("#projectName").value,
+            year: state.year,
+            embedding_source: "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL",
+          }),
+        });
+        window.localStorage.setItem(storageKey, project.id);
+      }
       state.projectId = project.id;
+      document.querySelector("#projectName").value = project.name;
     }
   } catch (error) {
     state.apiOnline = false;
     state.projectId = null;
   }
   updateUi();
+}
+
+async function loadProjectSamples() {
+  state.samples = [];
+  state.sampleLayer.clearLayers();
+  state.predictionLayer.clearLayers();
+  if (!state.apiOnline || !state.projectId) {
+    updateUi();
+    return;
+  }
+  try {
+    const samples = await apiRequest(`/projects/${state.projectId}/samples`, { method: "GET" });
+    samples.forEach((sample) => {
+      if (sample.geometry?.type !== "Point") return;
+      const [lng, lat] = sample.geometry.coordinates;
+      const loadedSample = {
+        id: sample.id,
+        lat,
+        lng,
+        year: sample.year || state.year,
+        classId: sample.class_id,
+      };
+      state.samples.push(loadedSample);
+      drawSample(loadedSample);
+    });
+  } catch {
+    showToast("Saved samples unavailable");
+  }
+  updateUi();
+}
+
+function getProjectStorageKey() {
+  return `eo_mapper_project_id_${state.year}`;
 }
 
 async function apiRequest(path, options = {}) {

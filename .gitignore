@@ -11,4 +11,5 @@ dist/
 .env
 .env.local
 data/cache/
+data/
 exports/
