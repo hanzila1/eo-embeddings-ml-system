@@ -86,7 +86,7 @@ Early stage:
 
 - Static frontend.
 - FastAPI backend.
-- Local files or SQLite for prototypes.
+- SQLite persistence for projects, labels, and sampled vectors.
 
 Production stage:
 

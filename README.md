@@ -27,6 +27,7 @@ Current live capabilities:
 - Continuous embedding-similarity tile layers for "show me more places like this".
 - Earth Engine Random Forest classification tiles trained from user labels.
 - Coarse grid fallbacks for debugging and fast previews.
+- SQLite persistence for projects, samples, and sampled embedding vectors.
 
 ## Quick Start
 
@@ -57,6 +58,18 @@ Then check:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8080/earth-engine/status
+```
+
+Local data is stored in:
+
+```text
+apps/api/data/eo_mapper.sqlite
+```
+
+Override it with:
+
+```powershell
+$env:EO_MAPPER_DATA_DIR="D:\eo-mapper-data"
 ```
 
 ## Target Data Source
