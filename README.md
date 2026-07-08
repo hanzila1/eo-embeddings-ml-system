@@ -25,7 +25,10 @@ Current live capabilities:
 - AlphaEarth embedding visualization tiles.
 - Click-based AlphaEarth vector sampling.
 - Continuous embedding-similarity tile layers for "show me more places like this".
+- Multi-year AlphaEarth change-detection tiles using `1 - cosine_similarity`.
 - Earth Engine Random Forest classification tiles trained from user labels.
+- API-backed sample undo/clear operations for iterative labeling sessions.
+- Live scene metrics for area, estimated 10 m embedding pixels, and class balance.
 - Coarse grid fallbacks for debugging and fast previews.
 - SQLite persistence for projects, samples, and sampled embedding vectors.
 

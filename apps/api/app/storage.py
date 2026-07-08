@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID
 
@@ -129,6 +131,28 @@ class SqliteStore:
             ).fetchall()
         return [self._sample_from_row(row) for row in rows]
 
+    def delete_sample(self, project_id: UUID, sample_id: UUID) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM samples
+                WHERE project_id = ? AND id = ?
+                """,
+                (str(project_id), str(sample_id)),
+            )
+        return cursor.rowcount > 0
+
+    def delete_samples(self, project_id: UUID) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM samples
+                WHERE project_id = ?
+                """,
+                (str(project_id),),
+            )
+        return int(cursor.rowcount)
+
     def sample_vectors(self, project_id: UUID) -> dict[UUID, list[float]]:
         with self._connect() as connection:
             rows = connection.execute(
@@ -150,11 +174,19 @@ class SqliteStore:
             sample_count = connection.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
         return {"projects": int(project_count), "samples": int(sample_count)}
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
-        return connection
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     @staticmethod
     def _project_from_row(row: sqlite3.Row) -> Project:

@@ -76,6 +76,17 @@ class ChangeRequest(BaseModel):
     area_geojson: dict[str, Any] | None = None
 
 
+class ChangeTileRequest(BaseModel):
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="[min_lon, min_lat, max_lon, max_lat]",
+    )
+    start_year: int = Field(ge=2017, le=2024, default=2017)
+    end_year: int = Field(ge=2017, le=2024, default=2024)
+
+
 class PredictGridRequest(BaseModel):
     bbox: list[float] = Field(
         min_length=4,

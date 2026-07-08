@@ -3,6 +3,7 @@ const state = {
   apiOnline: false,
   projectId: null,
   year: 2024,
+  startYear: 2017,
   mode: "label",
   activeClassId: "crop",
   trained: false,
@@ -13,6 +14,7 @@ const state = {
   embeddingTile: null,
   predictionTile: null,
   similarityTile: null,
+  changeTile: null,
   satelliteLayer: null,
   embeddingLayer: null,
   sampleLayer: null,
@@ -31,6 +33,7 @@ const state = {
 
 const els = {
   yearSelect: document.querySelector("#yearSelect"),
+  startYearSelect: document.querySelector("#startYearSelect"),
   modelSelect: document.querySelector("#modelSelect"),
   classList: document.querySelector("#classList"),
   sampleCount: document.querySelector("#sampleCount"),
@@ -42,6 +45,8 @@ const els = {
   legendMode: document.querySelector("#legendMode"),
   cursorReadout: document.querySelector("#cursorReadout"),
   zoomReadout: document.querySelector("#zoomReadout"),
+  sceneMetric: document.querySelector("#sceneMetric"),
+  sceneSummary: document.querySelector("#sceneSummary"),
   toast: document.querySelector("#toast"),
 };
 
@@ -52,6 +57,7 @@ async function init() {
     option.textContent = String(year);
     els.yearSelect.appendChild(option);
   }
+  updateChangeYearOptions();
 
   initMap();
   bindEvents();
@@ -93,14 +99,27 @@ function initMap() {
 function bindEvents() {
   els.yearSelect.addEventListener("change", async (event) => {
     state.year = Number(event.target.value);
+    if (state.startYear >= state.year) {
+      state.startYear = Math.max(2017, state.year - 1);
+    }
+    updateChangeYearOptions();
     state.projectId = null;
     state.trained = false;
     state.predictionLayer.clearLayers();
+    state.similarityLayer.clearLayers();
+    state.changeLayer.clearLayers();
     await connectApi();
     await loadProjectSamples();
     await loadSatelliteLayer();
     await loadEmbeddingLayer();
     showToast(`Year set to ${state.year}`);
+  });
+
+  els.startYearSelect.addEventListener("change", (event) => {
+    state.startYear = Number(event.target.value);
+    state.changeLayer.clearLayers();
+    updateUi();
+    showToast(`Change baseline set to ${state.startYear}`);
   });
 
   document.querySelector("#sampleModeBtn").addEventListener("click", () => setMode("label"));
@@ -109,6 +128,8 @@ function bindEvents() {
   document.querySelector("#trainBtn").addEventListener("click", trainMap);
   document.querySelector("#exportBtn").addEventListener("click", exportGeoJson);
   document.querySelector("#addClassBtn").addEventListener("click", addClass);
+  document.querySelector("#undoSampleBtn").addEventListener("click", undoLastSample);
+  document.querySelector("#clearSamplesBtn").addEventListener("click", clearSamples);
   document.querySelector("#zoomInBtn").addEventListener("click", () => state.map.zoomIn());
   document.querySelector("#zoomOutBtn").addEventListener("click", () => state.map.zoomOut());
   document.querySelector("#resetBtn").addEventListener("click", resetView);
@@ -124,6 +145,7 @@ function bindEvents() {
   document.querySelector("#predictionOpacity").addEventListener("input", (event) => {
     setTileOpacity(state.predictionTile, event.target.value);
     setTileOpacity(state.similarityTile, event.target.value);
+    setTileOpacity(state.changeTile, event.target.value);
   });
 }
 
@@ -149,10 +171,76 @@ function setMode(mode) {
   showToast(`${titleCase(mode)} mode`);
 }
 
+function updateChangeYearOptions() {
+  if (!els.startYearSelect) return;
+  const options = [];
+  for (let year = Math.min(2023, state.year - 1); year >= 2017; year -= 1) {
+    options.push(year);
+  }
+  if (options.length === 0) {
+    options.push(2017);
+  }
+  if (!options.includes(state.startYear)) {
+    state.startYear = options[options.length - 1];
+  }
+  els.startYearSelect.replaceChildren(
+    ...options.map((year) => {
+      const option = document.createElement("option");
+      option.value = String(year);
+      option.textContent = String(year);
+      option.selected = year === state.startYear;
+      return option;
+    }),
+  );
+}
+
 function updateMapStatus(latlng = null) {
   const center = latlng || state.map.getCenter();
   els.cursorReadout.textContent = `Lat ${center.lat.toFixed(4)}, Lon ${center.lng.toFixed(4)}`;
   els.zoomReadout.textContent = `Zoom ${state.map.getZoom()}`;
+  updateSceneMetrics();
+}
+
+function updateSceneMetrics() {
+  if (!state.map || !els.sceneMetric || !els.sceneSummary) return;
+  const bounds = state.map.getBounds();
+  const center = bounds.getCenter();
+  const latKm = Math.abs(bounds.getNorth() - bounds.getSouth()) * 111.32;
+  const lonKm =
+    Math.abs(bounds.getEast() - bounds.getWest()) *
+    111.32 *
+    Math.max(0.18, Math.cos((center.lat * Math.PI) / 180));
+  const areaKm2 = Math.max(0, latKm * lonKm);
+  const embeddingPixels = Math.round((areaKm2 * 1_000_000) / 100);
+  const classIds = new Set(state.samples.map((sample) => sample.classId));
+  const perClassCounts = state.classes.map((item) =>
+    state.samples.filter((sample) => sample.classId === item.id).length,
+  );
+  const labeledClasses = perClassCounts.filter((count) => count > 0);
+  const minimumClassCount = labeledClasses.length ? Math.min(...labeledClasses) : 0;
+  const readiness = Math.min(
+    100,
+    Math.round(
+      classIds.size * 24 +
+        Math.min(24, state.samples.length * 4) +
+        Math.min(28, minimumClassCount * 9),
+    ),
+  );
+
+  els.sceneMetric.textContent = `${formatNumber(areaKm2, 0)} km2`;
+  els.sceneSummary.replaceChildren(
+    sceneStatNode("10 m Pixels", compactNumber(embeddingPixels)),
+    sceneStatNode("Readiness", `${readiness}%`),
+    sceneStatNode("Class Balance", `${minimumClassCount || 0} min`),
+    sceneStatNode("Window", `${formatNumber(areaKm2, 0)} km2`),
+  );
+}
+
+function sceneStatNode(label, value) {
+  const node = document.createElement("div");
+  node.className = "scene-stat";
+  node.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+  return node;
 }
 
 function resetView() {
@@ -190,7 +278,7 @@ async function addSample(latlng) {
   if (state.apiOnline && state.projectId) {
     const sampleClass = state.classes.find((item) => item.id === sample.classId);
     try {
-      await apiRequest(`/projects/${state.projectId}/samples`, {
+      const savedSample = await apiRequest(`/projects/${state.projectId}/samples`, {
         method: "POST",
         body: JSON.stringify({
           class_id: sample.classId,
@@ -202,6 +290,7 @@ async function addSample(latlng) {
           },
         }),
       });
+      sample.id = savedSample.id;
       showToast("Real coordinate sample saved");
     } catch (error) {
       state.apiOnline = false;
@@ -209,6 +298,64 @@ async function addSample(latlng) {
       showToast("Sample kept locally; API save failed");
     }
   }
+}
+
+async function undoLastSample() {
+  const sample = state.samples.pop();
+  if (!sample) {
+    showToast("No samples to undo");
+    return;
+  }
+  state.trained = false;
+  state.predictionLayer.clearLayers();
+  redrawSamples();
+  updateUi();
+
+  if (state.apiOnline && state.projectId && sample.id) {
+    try {
+      await apiRequest(`/projects/${state.projectId}/samples/${sample.id}`, {
+        method: "DELETE",
+      });
+      showToast("Last sample removed");
+      return;
+    } catch {
+      showToast("Removed locally; API delete failed");
+      return;
+    }
+  }
+  showToast("Last sample removed");
+}
+
+async function clearSamples() {
+  if (!state.samples.length) {
+    showToast("No samples to clear");
+    return;
+  }
+  state.samples = [];
+  state.trained = false;
+  state.lastRun = null;
+  state.recommendations = [];
+  state.sampleLayer.clearLayers();
+  state.predictionLayer.clearLayers();
+  state.similarityLayer.clearLayers();
+  updateUi();
+
+  if (state.apiOnline && state.projectId) {
+    try {
+      await apiRequest(`/projects/${state.projectId}/samples`, { method: "DELETE" });
+      showToast("Samples cleared");
+      return;
+    } catch {
+      showToast("Cleared locally; API clear failed");
+      return;
+    }
+  }
+  showToast("Samples cleared");
+}
+
+function redrawSamples() {
+  state.sampleLayer.clearLayers();
+  state.samples.forEach(drawSample);
 }
 
 function drawSample(sample) {
@@ -317,7 +464,7 @@ function drawSimilarityGrid(features) {
   drawSimilarityLegend();
 }
 
-function addChangeTarget(latlng) {
+async function addChangeTarget(latlng) {
   state.changeLayer.clearLayers();
   L.circle(latlng, {
     radius: 3000,
@@ -326,7 +473,40 @@ function addChangeTarget(latlng) {
     fillColor: "#b54b43",
     fillOpacity: 0.18,
   }).addTo(state.changeLayer);
-  showToast(`Change target: 2017 to ${state.year}`);
+  if (!state.apiOnline || !state.projectId) {
+    drawChangeLegend();
+    showToast(`Change target: ${state.startYear} to ${state.year}`);
+    return;
+  }
+  try {
+    const bounds = state.map.getBounds();
+    const payload = await apiRequest(`/projects/${state.projectId}/change-tiles`, {
+      method: "POST",
+      body: JSON.stringify({
+        start_year: state.startYear,
+        end_year: state.year,
+        bbox: [
+          bounds.getWest(),
+          bounds.getSouth(),
+          bounds.getEast(),
+          bounds.getNorth(),
+        ],
+      }),
+    });
+    drawChangeTile(payload.tile_url);
+    showToast(`Embedding change layer: ${state.startYear}-${state.year}`);
+  } catch {
+    showToast("Change layer unavailable");
+  }
+}
+
+function drawChangeTile(tileUrl) {
+  state.changeTile = L.tileLayer(tileUrl, {
+    opacity: getOpacityValue("predictionOpacity"),
+    attribution: "AlphaEarth change via Google Earth Engine",
+  });
+  state.changeTile.addTo(state.changeLayer);
+  drawChangeLegend();
 }
 
 async function trainMap() {
@@ -539,13 +719,19 @@ function updateUi() {
       return node;
     }),
   );
+  updateSceneMetrics();
   drawLegend();
 }
 
 function drawLegend() {
-  els.legendMode.textContent = state.mode === "similar" ? "Similarity" : "Classes";
+  els.legendMode.textContent =
+    state.mode === "similar" ? "Similarity" : state.mode === "change" ? "Change" : "Classes";
   if (state.mode === "similar") {
     drawSimilarityLegend();
+    return;
+  }
+  if (state.mode === "change") {
+    drawChangeLegend();
     return;
   }
 
@@ -558,6 +744,27 @@ function drawLegend() {
         <span class="swatch" style="background:${item.color}"></span>
         <span class="legend-label">${item.name}</span>
         <span class="legend-count">${count}</span>
+      `;
+      return node;
+    }),
+  );
+}
+
+function drawChangeLegend() {
+  els.legendMode.textContent = "Change";
+  const items = [
+    ["Stable", "#1f7a57"],
+    ["Moderate", "#f4d35e"],
+    ["High", "#b23a48"],
+  ];
+  els.legendList.replaceChildren(
+    ...items.map(([label, color]) => {
+      const node = document.createElement("div");
+      node.className = "legend-item";
+      node.innerHTML = `
+        <span class="swatch" style="background:${color}"></span>
+        <span class="legend-label">${label}</span>
+        <span class="legend-count"></span>
       `;
       return node;
     }),
@@ -712,6 +919,19 @@ async function apiRequest(path, options = {}) {
 
 function titleCase(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatNumber(value, decimals = 1) {
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: decimals,
+  });
+}
+
+function compactNumber(value) {
+  return Intl.NumberFormat(undefined, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function showToast(message) {

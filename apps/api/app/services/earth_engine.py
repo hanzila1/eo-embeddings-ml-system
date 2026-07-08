@@ -224,6 +224,30 @@ class EarthEngineEmbeddingSampler:
             ],
         }
 
+    def change_tile_url(
+        self,
+        start_year: int,
+        end_year: int,
+        bbox: list[float] | None = None,
+    ) -> str:
+        ee = self._import_ee()
+        self._initialize(ee)
+
+        start_image = self._annual_embedding_image(ee, start_year)
+        end_image = self._annual_embedding_image(ee, end_year)
+        similarity = start_image.multiply(end_image).reduce(ee.Reducer.sum())
+        change = ee.Image(1).subtract(similarity).rename("embedding_change")
+        if bbox:
+            change = change.clip(self._bbox_to_geometry(ee, bbox))
+
+        visual = change.visualize(
+            min=0.02,
+            max=0.38,
+            palette=["102820", "1f7a57", "f4d35e", "f28c38", "b23a48"],
+        )
+        map_id = visual.getMapId()
+        return map_id["tile_fetcher"].url_format
+
     def sentinel2_tile_url(self, year: int) -> str:
         ee = self._import_ee()
         self._initialize(ee)

@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>EO Embeddings Mapper</title>
+    <link rel="icon" href="data:," />
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIINfQqoAMocT2nZ5Hlf9yXCC2dhfXyWmM="
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=20260616-ui" />
+    <link rel="stylesheet" href="./styles.css?v=20260708-workbench" />
   </head>
   <body>
     <main class="app-shell">
@@ -40,6 +40,10 @@
               </select>
             </div>
           </div>
+          <div>
+            <label for="startYearSelect">Change From</label>
+            <select id="startYearSelect"></select>
+          </div>
         </section>
 
         <section class="control-section">
@@ -59,6 +63,10 @@
             <button id="sampleModeBtn" class="primary-button">Label</button>
             <button id="similarModeBtn">Similar</button>
             <button id="changeModeBtn">Change</button>
+          </div>
+          <div class="button-row two">
+            <button id="undoSampleBtn">Undo</button>
+            <button id="clearSamplesBtn">Clear Samples</button>
           </div>
         </section>
 
@@ -89,6 +97,10 @@
           <div class="metric">
             <span>API</span>
             <strong id="apiStatus">Checking</strong>
+          </div>
+          <div class="metric">
+            <span>Scene</span>
+            <strong id="sceneMetric">-- km2</strong>
           </div>
         </header>
 
@@ -133,6 +145,10 @@
             <div id="runSummary" class="summary-grid"></div>
           </section>
           <section>
+            <h2>Scene Intelligence</h2>
+            <div id="sceneSummary" class="scene-summary"></div>
+          </section>
+          <section>
             <h2>Active Learning</h2>
             <div id="activeLearningList" class="recommendations"></div>
           </section>
@@ -145,6 +161,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=20260616-ui"></script>
+    <script src="./app.js?v=20260708-workbench"></script>
   </body>
 </html>

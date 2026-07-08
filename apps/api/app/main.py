@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.schemas import (
     ChangeRequest,
+    ChangeTileRequest,
     ClassificationTileRequest,
     PredictGridRequest,
     Project,
@@ -170,6 +171,22 @@ def list_samples(project_id: UUID) -> list[Sample]:
     return store.list_samples(project_id)
 
 
+@app.delete("/projects/{project_id}/samples/{sample_id}")
+def delete_sample(project_id: UUID, sample_id: UUID) -> dict[str, object]:
+    _get_project_or_404(project_id)
+    deleted = store.delete_sample(project_id, sample_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Sample not found")
+    return {"deleted": True, "sample_id": sample_id}
+
+
+@app.delete("/projects/{project_id}/samples")
+def delete_samples(project_id: UUID) -> dict[str, object]:
+    _get_project_or_404(project_id)
+    deleted_count = store.delete_samples(project_id)
+    return {"deleted": deleted_count}
+
+
 @app.post("/projects/{project_id}/train", response_model=TrainRun)
 def train(project_id: UUID, payload: TrainRequest) -> TrainRun:
     _get_project_or_404(project_id)
@@ -292,6 +309,35 @@ def change(project_id: UUID, payload: ChangeRequest) -> dict[str, object]:
         "end_year": payload.end_year,
         "method": "1 - cosine_similarity(embedding_start, embedding_end)",
         "message": "Change detection route ready for Earth Engine raster execution.",
+    }
+
+
+@app.post("/projects/{project_id}/change-tiles")
+def change_tiles(project_id: UUID, payload: ChangeTileRequest) -> dict[str, object]:
+    _get_project_or_404(project_id)
+    if payload.start_year >= payload.end_year:
+        raise HTTPException(status_code=400, detail="start_year must be before end_year")
+
+    try:
+        tile_url = earth_engine_sampler.change_tile_url(
+            start_year=payload.start_year,
+            end_year=payload.end_year,
+            bbox=payload.bbox,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {
+        "project_id": project_id,
+        "start_year": payload.start_year,
+        "end_year": payload.end_year,
+        "source_mode": "earth_engine",
+        "tile_url": tile_url,
+        "visualization": {
+            "metric": "1 - cosine_similarity",
+            "min": 0.02,
+            "max": 0.38,
+        },
     }
 
 
