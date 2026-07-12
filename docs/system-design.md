@@ -37,6 +37,9 @@ Initial confidence can be derived from:
 - Distance to nearest labeled prototypes.
 - Ensemble disagreement.
 
+The current Earth Engine path publishes a continuous classifier-confidence tile and
+computes mean, median, P10, and low-confidence area for the selected AOI.
+
 ### 5. Active Learning
 
 Recommend next labels from pixels or cells where:
@@ -45,6 +48,9 @@ Recommend next labels from pixels or cells where:
 - embeddings are far from existing samples,
 - classes overlap in embedding space,
 - spatial coverage is poor.
+
+The workbench currently exposes uncertainty as an evidence layer and area statistic.
+Automatic next-label placement remains a planned model-assisted workflow.
 
 ### 6. Export
 
@@ -65,6 +71,17 @@ The MVP supports real Earth Engine map tiles:
 - Classification layers trained from user labels with Earth Engine Random Forest.
 
 Grid endpoints remain useful as debug previews, but production UX should prefer tile layers and exports.
+
+### 8. AOI Intelligence
+
+The selected AOI is the analytical contract for every production output:
+
+- continuous classification, confidence, similarity, and change raster tiles,
+- per-class area and uncertainty statistics,
+- thresholded changed-area estimates,
+- ranked hotspot polygons from zonal embedding drift,
+- annual point-level embedding drift profiles,
+- GeoJSON evidence and provenance-rich JSON exports.
 
 ## Reference Architecture
 

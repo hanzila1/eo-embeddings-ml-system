@@ -87,6 +87,23 @@ class ChangeTileRequest(BaseModel):
     end_year: int = Field(ge=2017, le=2024, default=2024)
 
 
+class ChangeAnalysisRequest(ChangeTileRequest):
+    bbox: list[float] = Field(
+        min_length=4,
+        max_length=4,
+        description="[min_lon, min_lat, max_lon, max_lat]",
+    )
+    threshold: float = Field(default=0.18, ge=0.01, le=0.75)
+    hotspot_grid: int = Field(default=6, ge=3, le=10)
+    hotspot_limit: int = Field(default=8, ge=1, le=20)
+
+
+class TemporalProfileRequest(BaseModel):
+    geometry: dict[str, Any]
+    start_year: int = Field(ge=2017, le=2024, default=2017)
+    end_year: int = Field(ge=2017, le=2024, default=2024)
+
+
 class PredictGridRequest(BaseModel):
     bbox: list[float] = Field(
         min_length=4,
@@ -107,3 +124,4 @@ class ClassificationTileRequest(BaseModel):
         description="[min_lon, min_lat, max_lon, max_lat]",
     )
     year: int = Field(ge=2017, le=2024, default=2024)
+    include_analysis: bool = True

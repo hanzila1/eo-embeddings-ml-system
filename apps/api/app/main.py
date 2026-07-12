@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.schemas import (
+    ChangeAnalysisRequest,
     ChangeRequest,
     ChangeTileRequest,
     ClassificationTileRequest,
@@ -15,6 +16,7 @@ from app.schemas import (
     SimilarityGridRequest,
     SimilarityRequest,
     SimilarityTileRequest,
+    TemporalProfileRequest,
     TrainRequest,
     TrainRun,
 )
@@ -24,7 +26,7 @@ from app.services.models import FewShotTrainer
 from app.storage import SqliteStore
 
 
-app = FastAPI(title="EO Embeddings API", version="0.1.0")
+app = FastAPI(title="EO Embeddings Intelligence API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -341,6 +343,56 @@ def change_tiles(project_id: UUID, payload: ChangeTileRequest) -> dict[str, obje
     }
 
 
+@app.post("/projects/{project_id}/change-analysis")
+def change_analysis(project_id: UUID, payload: ChangeAnalysisRequest) -> dict[str, object]:
+    _get_project_or_404(project_id)
+    if payload.start_year >= payload.end_year:
+        raise HTTPException(status_code=400, detail="start_year must be before end_year")
+
+    try:
+        result = earth_engine_sampler.change_analysis(
+            start_year=payload.start_year,
+            end_year=payload.end_year,
+            bbox=payload.bbox,
+            threshold=payload.threshold,
+            hotspot_grid=payload.hotspot_grid,
+            hotspot_limit=payload.hotspot_limit,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {
+        "project_id": project_id,
+        "source_mode": "earth_engine",
+        "method": "1 - cosine_similarity(embedding_start, embedding_end)",
+        **result,
+    }
+
+
+@app.post("/projects/{project_id}/temporal-profile")
+def temporal_profile(project_id: UUID, payload: TemporalProfileRequest) -> dict[str, object]:
+    _get_project_or_404(project_id)
+    if payload.start_year > payload.end_year:
+        raise HTTPException(status_code=400, detail="start_year must not exceed end_year")
+
+    try:
+        series = earth_engine_sampler.temporal_profile(
+            geometry=payload.geometry,
+            start_year=payload.start_year,
+            end_year=payload.end_year,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {
+        "project_id": project_id,
+        "source_mode": "earth_engine",
+        "reference_year": payload.end_year,
+        "geometry": payload.geometry,
+        "series": series,
+    }
+
+
 @app.post("/projects/{project_id}/predict-grid")
 def predict_grid(project_id: UUID, payload: PredictGridRequest) -> dict[str, object]:
     _get_project_or_404(project_id)
@@ -430,6 +482,7 @@ def classification_tiles(project_id: UUID, payload: ClassificationTileRequest) -
             training_samples=store.list_samples(project_id),
             year=payload.year,
             bbox=payload.bbox,
+            include_analysis=payload.include_analysis,
         )
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

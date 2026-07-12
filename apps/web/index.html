@@ -3,164 +3,365 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>EO Embeddings Mapper</title>
+    <meta name="theme-color" content="#12221c" />
+    <title>AlphaEarth Intelligence Workbench</title>
     <link rel="icon" href="data:," />
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       crossorigin=""
     />
-    <link rel="stylesheet" href="./styles.css?v=20260708-workbench" />
+    <link rel="stylesheet" href="./styles.css?v=20260711-monster" />
   </head>
   <body>
     <main class="app-shell">
-      <aside class="sidebar" aria-label="Project controls">
-        <section class="brand-block">
-          <div>
-            <p class="eyebrow">AlphaEarth Workbench</p>
-            <h1>Embeddings Mapper</h1>
+      <aside class="sidebar" aria-label="Analysis workflow">
+        <header class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <i data-lucide="scan-search"></i>
           </div>
-          <span class="status-dot" title="Prototype ready"></span>
-        </section>
+          <div class="brand-copy">
+            <p>AlphaEarth Studio</p>
+            <h1>EO Intelligence</h1>
+          </div>
+          <span id="connectionDot" class="connection-dot" data-state="checking"></span>
+        </header>
 
-        <section class="control-section">
-          <label for="projectName">Project</label>
-          <input id="projectName" value="Indus Basin crop mapping" />
-
+        <section class="sidebar-section project-section">
+          <div class="section-heading">
+            <div>
+              <span class="step-index">01</span>
+              <h2>Project</h2>
+            </div>
+            <span id="projectState" class="section-state">Local</span>
+          </div>
+          <label for="projectName">Name</label>
+          <input id="projectName" value="Indus Basin land intelligence" />
           <div class="field-row">
             <div>
-              <label for="yearSelect">Year</label>
+              <label for="yearSelect">Target year</label>
               <select id="yearSelect"></select>
             </div>
             <div>
-              <label for="modelSelect">Model</label>
-              <select id="modelSelect">
-                <option value="random_forest">Random Forest</option>
-                <option value="knn">kNN</option>
-              </select>
+              <label for="startYearSelect">Baseline</label>
+              <select id="startYearSelect"></select>
             </div>
           </div>
-          <div>
-            <label for="startYearSelect">Change From</label>
-            <select id="startYearSelect"></select>
-          </div>
         </section>
 
-        <section class="control-section">
+        <section class="sidebar-section aoi-section">
           <div class="section-heading">
-            <h2>Classes</h2>
-            <button id="addClassBtn" class="icon-button" title="Add class">+</button>
-          </div>
-          <div id="classList" class="class-list"></div>
-        </section>
-
-        <section class="control-section">
-          <div class="section-heading">
-            <h2>Samples</h2>
-            <span id="sampleCount" class="metric-pill">0</span>
-          </div>
-          <div class="button-row">
-            <button id="sampleModeBtn" class="primary-button">Label</button>
-            <button id="similarModeBtn">Similar</button>
-            <button id="changeModeBtn">Change</button>
+            <div>
+              <span class="step-index">02</span>
+              <h2>Area of interest</h2>
+            </div>
+            <span id="aoiState" class="section-state">View AOI</span>
           </div>
           <div class="button-row two">
-            <button id="undoSampleBtn">Undo</button>
-            <button id="clearSamplesBtn">Clear Samples</button>
+            <button id="drawAoiBtn" type="button">
+              <i data-lucide="box-select" aria-hidden="true"></i>
+              <span>Draw AOI</span>
+            </button>
+            <button id="useViewBtn" type="button">
+              <i data-lucide="maximize" aria-hidden="true"></i>
+              <span>Use view</span>
+            </button>
+          </div>
+          <div class="aoi-readout">
+            <div>
+              <span>Area</span>
+              <strong id="aoiArea">-- km2</strong>
+            </div>
+            <div>
+              <span>10 m pixels</span>
+              <strong id="aoiPixels">--</strong>
+            </div>
+            <button
+              id="clearAoiBtn"
+              class="icon-button ghost-button"
+              type="button"
+              aria-label="Clear area of interest"
+              data-tooltip="Clear AOI"
+            >
+              <i data-lucide="x" aria-hidden="true"></i>
+            </button>
           </div>
         </section>
 
-        <section class="control-section">
-          <button id="trainBtn" class="train-button">Train Map</button>
-          <button id="exportBtn">Export GeoJSON</button>
+        <section class="sidebar-section label-section">
+          <div class="section-heading">
+            <div>
+              <span class="step-index">03</span>
+              <h2>Evidence labels</h2>
+            </div>
+            <button
+              id="addClassBtn"
+              class="icon-button"
+              type="button"
+              aria-label="Add a map class"
+              data-tooltip="Add class"
+            >
+              <i data-lucide="plus" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div id="classList" class="class-list"></div>
+          <div class="mode-switcher" aria-label="Map interaction mode">
+            <button id="sampleModeBtn" type="button" data-mode="label">
+              <i data-lucide="map-pin-plus" aria-hidden="true"></i>
+              <span>Label</span>
+            </button>
+            <button id="similarModeBtn" type="button" data-mode="similar">
+              <i data-lucide="radar" aria-hidden="true"></i>
+              <span>Similar</span>
+            </button>
+            <button id="inspectModeBtn" type="button" data-mode="inspect">
+              <i data-lucide="scan-eye" aria-hidden="true"></i>
+              <span>Inspect</span>
+            </button>
+          </div>
+          <div class="sample-actions">
+            <span><strong id="sampleCount">0</strong> samples</span>
+            <div>
+              <button
+                id="undoSampleBtn"
+                class="icon-button ghost-button"
+                type="button"
+                aria-label="Undo last sample"
+                data-tooltip="Undo sample"
+              >
+                <i data-lucide="undo-2" aria-hidden="true"></i>
+              </button>
+              <button
+                id="clearSamplesBtn"
+                class="icon-button ghost-button"
+                type="button"
+                aria-label="Clear all samples"
+                data-tooltip="Clear samples"
+              >
+                <i data-lucide="trash-2" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
         </section>
+
+        <section class="sidebar-section analysis-section">
+          <div class="section-heading">
+            <div>
+              <span class="step-index">04</span>
+              <h2>Run analysis</h2>
+            </div>
+            <select id="modelSelect" class="compact-select" aria-label="Model">
+              <option value="random_forest">Random Forest</option>
+              <option value="knn">kNN preview</option>
+            </select>
+          </div>
+          <button id="trainBtn" class="primary-action" type="button">
+            <i data-lucide="layers-3" aria-hidden="true"></i>
+            <span>Build land-cover map</span>
+          </button>
+          <div class="threshold-control">
+            <div>
+              <label for="changeThreshold">Change threshold</label>
+              <strong id="thresholdValue">0.18</strong>
+            </div>
+            <input id="changeThreshold" type="range" min="0.05" max="0.35" step="0.01" value="0.18" />
+          </div>
+          <button id="changeAnalysisBtn" class="secondary-action" type="button">
+            <i data-lucide="activity" aria-hidden="true"></i>
+            <span>Detect change hotspots</span>
+          </button>
+        </section>
+
+        <footer class="sidebar-footer">
+          <button id="exportGeoJsonBtn" type="button">
+            <i data-lucide="file-down" aria-hidden="true"></i>
+            <span>GeoJSON</span>
+          </button>
+          <button id="exportReportBtn" type="button">
+            <i data-lucide="package-open" aria-hidden="true"></i>
+            <span>Analysis JSON</span>
+          </button>
+        </footer>
       </aside>
 
       <section class="workspace">
         <header class="topbar">
-          <div class="metric">
-            <span>Embedding source</span>
-            <strong>GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL</strong>
+          <div class="workspace-title">
+            <span class="workspace-kicker">Operational workspace</span>
+            <strong id="workspaceProject">Indus Basin land intelligence</strong>
           </div>
-          <div class="metric">
-            <span>Resolution</span>
-            <strong>10 m</strong>
-          </div>
-          <div class="metric">
-            <span>Bands</span>
-            <strong>64</strong>
-          </div>
-          <div class="metric">
-            <span>Mode</span>
-            <strong id="modeLabel">Label</strong>
-          </div>
-          <div class="metric">
-            <span>API</span>
-            <strong id="apiStatus">Checking</strong>
-          </div>
-          <div class="metric">
-            <span>Scene</span>
-            <strong id="sceneMetric">-- km2</strong>
+          <div class="topbar-meta">
+            <span class="status-chip"><i data-lucide="calendar-days"></i><strong id="yearChip">2024</strong></span>
+            <span class="status-chip"><i data-lucide="grid-3x3"></i><strong>64D / 10 m</strong></span>
+            <span id="apiChip" class="status-chip" data-status="checking">
+              <i data-lucide="cloud"></i><strong id="apiStatus">Checking</strong>
+            </span>
           </div>
         </header>
 
-        <div class="map-wrap">
-          <div id="map" aria-label="Interactive map"></div>
-          <div class="layer-switcher" aria-label="Layer controls">
-            <div class="layer-row">
-              <button id="satelliteLayerBtn" class="active" type="button">Satellite</button>
-              <input id="satelliteOpacity" type="range" min="0" max="100" value="92" />
+        <div class="workbench">
+          <div class="map-wrap">
+            <div id="map" aria-label="Interactive Earth observation map"></div>
+
+            <div class="map-mode" aria-live="polite">
+              <span id="modePulse" class="mode-pulse"></span>
+              <strong id="mapInstruction">Labeling Cropland</strong>
             </div>
-            <div class="layer-row">
-              <button id="embeddingLayerBtn" class="active" type="button">Embeddings</button>
-              <input id="embeddingOpacity" type="range" min="0" max="100" value="45" />
+
+            <div class="layer-switcher" aria-label="Layer controls">
+              <div class="layer-title">
+                <span>Layers</span>
+                <strong id="activeResultLabel">No result</strong>
+              </div>
+              <div class="layer-row">
+                <button id="satelliteLayerBtn" class="layer-toggle active" type="button" aria-pressed="true">Satellite</button>
+                <input id="satelliteOpacity" type="range" min="0" max="100" value="88" aria-label="Satellite opacity" />
+              </div>
+              <div class="layer-row">
+                <button id="embeddingLayerBtn" class="layer-toggle active" type="button" aria-pressed="true">Embeddings</button>
+                <input id="embeddingOpacity" type="range" min="0" max="100" value="34" aria-label="Embedding opacity" />
+              </div>
+              <div class="layer-row">
+                <button id="predictionLayerBtn" class="layer-toggle active" type="button" aria-pressed="true">Result</button>
+                <input id="predictionOpacity" type="range" min="0" max="100" value="68" aria-label="Result opacity" />
+              </div>
+              <div class="layer-row">
+                <button id="confidenceLayerBtn" class="layer-toggle" type="button" aria-pressed="false">Confidence</button>
+                <input id="confidenceOpacity" type="range" min="0" max="100" value="70" aria-label="Confidence opacity" />
+              </div>
             </div>
-            <div class="layer-row">
-              <button id="predictionLayerBtn" class="active" type="button">Predictions</button>
-              <input id="predictionOpacity" type="range" min="0" max="100" value="62" />
+
+            <div class="map-toolbar" aria-label="Map tools">
+              <button id="zoomInBtn" type="button" aria-label="Zoom in" data-tooltip="Zoom in">
+                <i data-lucide="plus" aria-hidden="true"></i>
+              </button>
+              <button id="zoomOutBtn" type="button" aria-label="Zoom out" data-tooltip="Zoom out">
+                <i data-lucide="minus" aria-hidden="true"></i>
+              </button>
+              <button id="resetBtn" type="button" aria-label="Reset map view" data-tooltip="Home view">
+                <i data-lucide="house" aria-hidden="true"></i>
+              </button>
+              <button id="fitAoiBtn" type="button" aria-label="Fit area of interest" data-tooltip="Fit AOI">
+                <i data-lucide="focus" aria-hidden="true"></i>
+              </button>
             </div>
-          </div>
-          <div class="map-toolbar" aria-label="Map tools">
-            <button id="zoomInBtn" title="Zoom in">+</button>
-            <button id="zoomOutBtn" title="Zoom out">-</button>
-            <button id="resetBtn" title="Reset view">H</button>
-          </div>
-          <div class="legend-panel" aria-label="Map legend">
-            <div class="legend-header">
-              <span>Legend</span>
-              <strong id="legendMode">Classes</strong>
+
+            <div class="legend-panel" aria-label="Map legend">
+              <div class="legend-header">
+                <span>Legend</span>
+                <strong id="legendMode">Classes</strong>
+              </div>
+              <div id="legendList" class="legend-list"></div>
             </div>
-            <div id="legendList" class="legend-list"></div>
+
+            <div class="map-status" aria-label="Map status">
+              <span id="cursorReadout">25.3500 N, 68.2500 E</span>
+              <span id="zoomReadout">Z9</span>
+              <span id="scaleReadout">AOI -- km2</span>
+            </div>
+
+            <div id="analysisLoader" class="analysis-loader" hidden>
+              <span class="loader-ring" aria-hidden="true"></span>
+              <div>
+                <strong id="loaderTitle">Running Earth Engine</strong>
+                <span id="loaderDetail">Computing AOI evidence</span>
+              </div>
+            </div>
+            <div id="toast" class="toast" role="status"></div>
           </div>
-          <div class="map-status" aria-label="Map status">
-            <span id="cursorReadout">Lat --, Lon --</span>
-            <span id="zoomReadout">Zoom --</span>
-          </div>
-          <div id="toast" class="toast" role="status"></div>
+
+          <aside class="intelligence-panel" aria-label="Analysis results">
+            <header class="intelligence-header">
+              <div>
+                <span>Decision intelligence</span>
+                <h2 id="resultTitle">Scene overview</h2>
+              </div>
+              <span id="resultSource" class="source-badge">Live AOI</span>
+            </header>
+
+            <nav class="result-tabs" aria-label="Result views">
+              <button id="overviewTab" class="active" type="button" data-tab="overview">Overview</button>
+              <button id="hotspotsTab" type="button" data-tab="hotspots">Hotspots <span id="hotspotCount">0</span></button>
+              <button id="profileTab" type="button" data-tab="profile">Profile</button>
+            </nav>
+
+            <div class="result-scroll">
+              <section id="overviewPanel" class="result-panel active" data-panel="overview">
+                <div id="overviewMetrics" class="metric-grid"></div>
+                <section class="result-section">
+                  <div class="result-section-heading">
+                    <h3 id="distributionTitle">Label distribution</h3>
+                    <span id="distributionMeta">Evidence</span>
+                  </div>
+                  <div id="distributionList" class="distribution-list"></div>
+                </section>
+                <section class="result-section">
+                  <div class="result-section-heading">
+                    <h3>Evidence quality</h3>
+                    <span id="qualityState">Not trained</span>
+                  </div>
+                  <div id="qualityList" class="quality-list"></div>
+                </section>
+              </section>
+
+              <section id="hotspotsPanel" class="result-panel" data-panel="hotspots">
+                <div id="hotspotSummary" class="panel-summary"></div>
+                <div id="hotspotList" class="hotspot-list"></div>
+              </section>
+
+              <section id="profilePanel" class="result-panel" data-panel="profile">
+                <div id="profileSummary" class="panel-summary"></div>
+                <div class="chart-shell">
+                  <svg id="temporalChart" viewBox="0 0 320 190" role="img" aria-label="Embedding drift by year"></svg>
+                </div>
+                <div id="profileValues" class="profile-values"></div>
+              </section>
+            </div>
+
+            <footer class="provenance-footer">
+              <div><i data-lucide="database"></i><span>GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL</span></div>
+              <div><i data-lucide="badge-check"></i><span id="provenanceState">Awaiting analysis</span></div>
+            </footer>
+          </aside>
         </div>
 
-        <footer class="insight-panel">
-          <section>
-            <h2>Run</h2>
-            <div id="runSummary" class="summary-grid"></div>
-          </section>
-          <section>
-            <h2>Scene Intelligence</h2>
-            <div id="sceneSummary" class="scene-summary"></div>
-          </section>
-          <section>
-            <h2>Active Learning</h2>
-            <div id="activeLearningList" class="recommendations"></div>
-          </section>
+        <footer class="statusbar">
+          <span><i data-lucide="server"></i><strong id="footerApi">API connecting</strong></span>
+          <span><i data-lucide="satellite"></i><strong id="footerEe">Earth Engine checking</strong></span>
+          <span class="statusbar-spacer"></span>
+          <span id="projectIdReadout">Project --</span>
         </footer>
       </section>
     </main>
+
+    <dialog id="classDialog" class="class-dialog">
+      <form id="classForm" method="dialog">
+        <header>
+          <div>
+            <span>Training taxonomy</span>
+            <h2>Add map class</h2>
+          </div>
+          <button id="closeClassDialogBtn" class="icon-button ghost-button" type="button" aria-label="Close">
+            <i data-lucide="x" aria-hidden="true"></i>
+          </button>
+        </header>
+        <label for="classNameInput">Class name</label>
+        <input id="classNameInput" maxlength="40" placeholder="e.g. Mangrove" required />
+        <label for="classColorInput">Map color</label>
+        <input id="classColorInput" type="color" value="#6b5ca5" />
+        <button class="primary-action" type="submit">
+          <i data-lucide="plus" aria-hidden="true"></i>
+          <span>Add class</span>
+        </button>
+      </form>
+    </dialog>
 
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=20260708-workbench"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="./app.js?v=20260711-monster"></script>
   </body>
 </html>

@@ -2,10 +2,10 @@
 
 Map-first tooling for few-shot Earth observation mapping with foundation-model embeddings.
 
-This repository starts with a practical MVP:
+This repository contains an operational, map-first AlphaEarth analysis workbench:
 
-- `apps/web`: dependency-light browser prototype for labeling, training runs, similarity search, change inspection, and export flows.
-- `apps/api`: FastAPI skeleton for projects, samples, embedding extraction, model training, and inference.
+- `apps/web`: dependency-light browser workbench for AOIs, evidence labeling, similarity search, change intelligence, temporal inspection, and exports.
+- `apps/api`: FastAPI service for projects, samples, embedding extraction, few-shot models, Earth Engine inference, and zonal analytics.
 - `docs`: architecture and AlphaEarth/Earth Engine workflow notes.
 
 ## Product Direction
@@ -26,18 +26,33 @@ Current live capabilities:
 - Click-based AlphaEarth vector sampling.
 - Continuous embedding-similarity tile layers for "show me more places like this".
 - Multi-year AlphaEarth change-detection tiles using `1 - cosine_similarity`.
+- AOI-level change statistics: changed area, share of AOI, mean, median, P90, and P95 drift.
+- Ranked change-hotspot polygons that can be inspected, focused, and exported.
 - Earth Engine Random Forest classification tiles trained from user labels.
+- Classification confidence tiles, low-confidence area, and per-class area estimates.
+- A point inspector that compares annual 2017-2024 embeddings and plots temporal drift.
 - API-backed sample undo/clear operations for iterative labeling sessions.
-- Live scene metrics for area, estimated 10 m embedding pixels, and class balance.
+- Two-corner AOI drawing, view-to-AOI capture, live area, estimated 10 m pixels, and class balance.
+- Portable GeoJSON evidence and a provenance-rich analysis JSON package.
 - Coarse grid fallbacks for debugging and fast previews.
 - SQLite persistence for projects, samples, and sampled embedding vectors.
 
+## Operational Workflow
+
+1. Draw an AOI or capture the current map view.
+2. Click examples for at least two land-cover classes.
+3. Build the land-cover map and inspect class area plus confidence.
+4. Detect multi-year change and open the ranked hotspot list.
+5. Switch to Inspect and click any pixel for its annual embedding-drift signature.
+6. Export the AOI, labels, hotspots, metrics, model run, and provenance.
+
 ## Quick Start
 
-Open the static prototype:
+Serve the browser workbench:
 
 ```powershell
-Start-Process .\apps\web\index.html
+cd apps\web
+python -m http.server 5173 --bind 127.0.0.1
 ```
 
 Run the API after installing dependencies:
@@ -62,6 +77,8 @@ Then check:
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8080/earth-engine/status
 ```
+
+Open `http://127.0.0.1:5173/index.html` after both services are running.
 
 Local data is stored in:
 
