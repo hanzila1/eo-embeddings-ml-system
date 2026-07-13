@@ -85,6 +85,20 @@ class SqliteStore:
             ).fetchone()
         return self._project_from_row(row) if row else None
 
+    def update_project_name(self, project_id: UUID, name: str) -> Project | None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE projects
+                SET name = ?
+                WHERE id = ?
+                """,
+                (name, str(project_id)),
+            )
+        if cursor.rowcount == 0:
+            return None
+        return self.get_project(project_id)
+
     def add_sample(
         self,
         sample: Sample,

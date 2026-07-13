@@ -11,6 +11,10 @@ class ProjectCreate(BaseModel):
     embedding_source: str = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
 
 
+class ProjectUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
 class Project(ProjectCreate):
     id: UUID
 

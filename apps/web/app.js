@@ -9,6 +9,8 @@ const state = {
   eeReady: false,
   eeProject: null,
   projectId: null,
+  projectNameSaveTimer: null,
+  projectNameRevision: 0,
   year: 2024,
   startYear: 2017,
   mode: "label",
@@ -200,7 +202,11 @@ function createMapPanes() {
 function bindEvents() {
   els.projectName.addEventListener("input", () => {
     els.workspaceProject.textContent = els.projectName.value || "Untitled project";
+    scheduleProjectNameSave();
   });
+  els.projectName.addEventListener("blur", () =>
+    saveProjectName(state.projectNameRevision, state.projectId),
+  );
 
   els.yearSelect.addEventListener("change", async (event) => {
     state.year = Number(event.target.value);
@@ -260,6 +266,45 @@ function bindEvents() {
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
+}
+
+function scheduleProjectNameSave() {
+  window.clearTimeout(state.projectNameSaveTimer);
+  state.projectNameRevision += 1;
+  if (!state.apiOnline || !state.projectId) {
+    els.projectState.textContent = "Local";
+    return;
+  }
+  els.projectState.textContent = els.projectName.value.trim() ? "Unsaved" : "Name required";
+  const revision = state.projectNameRevision;
+  const projectId = state.projectId;
+  state.projectNameSaveTimer = window.setTimeout(
+    () => saveProjectName(revision, projectId),
+    600,
+  );
+}
+
+async function saveProjectName(revision, projectId) {
+  window.clearTimeout(state.projectNameSaveTimer);
+  state.projectNameSaveTimer = null;
+  const name = els.projectName.value.trim();
+  if (!name || !state.apiOnline || !projectId || projectId !== state.projectId) return;
+
+  els.projectState.textContent = "Saving";
+  try {
+    const project = await apiRequest(`/projects/${projectId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    });
+    if (revision !== state.projectNameRevision || projectId !== state.projectId) return;
+    els.projectName.value = project.name;
+    els.workspaceProject.textContent = project.name;
+    els.projectState.textContent = "Saved";
+  } catch (error) {
+    if (revision !== state.projectNameRevision || projectId !== state.projectId) return;
+    els.projectState.textContent = "Unsaved";
+    showToast(`Project name not saved: ${error.message}`);
+  }
 }
 
 function bindLayerControl(layerName, buttonSelector, rangeSelector) {

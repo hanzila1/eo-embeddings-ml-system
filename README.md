@@ -36,6 +36,7 @@ Current live capabilities:
 - Portable GeoJSON evidence and a provenance-rich analysis JSON package.
 - Coarse grid fallbacks for debugging and fast previews.
 - SQLite persistence for projects, samples, and sampled embedding vectors.
+- Auto-saved project names backed by the API and SQLite.
 
 ## Operational Workflow
 

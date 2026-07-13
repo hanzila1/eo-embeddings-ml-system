@@ -11,6 +11,7 @@ from app.schemas import (
     PredictGridRequest,
     Project,
     ProjectCreate,
+    ProjectUpdate,
     Sample,
     SampleCreate,
     SimilarityGridRequest,
@@ -26,7 +27,7 @@ from app.services.models import FewShotTrainer
 from app.storage import SqliteStore
 
 
-app = FastAPI(title="EO Embeddings Intelligence API", version="0.2.0")
+app = FastAPI(title="EO Embeddings Intelligence API", version="0.2.1")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -125,6 +126,17 @@ def list_projects() -> list[Project]:
 @app.get("/projects/{project_id}", response_model=Project)
 def get_project(project_id: UUID) -> Project:
     return _get_project_or_404(project_id)
+
+
+@app.patch("/projects/{project_id}", response_model=Project)
+def update_project(project_id: UUID, payload: ProjectUpdate) -> Project:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Project name cannot be blank")
+    project = store.update_project_name(project_id, name)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
 
 
 @app.post("/projects/{project_id}/samples", response_model=Sample)
