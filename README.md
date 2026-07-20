@@ -34,6 +34,7 @@ Current live capabilities:
 - API-backed sample undo/clear operations for iterative labeling sessions.
 - Two-corner AOI drawing, view-to-AOI capture, live area, estimated 10 m pixels, and class balance.
 - Portable GeoJSON evidence and a provenance-rich analysis JSON package.
+- Project/year/date-stamped exports with embedded GeoJSON provenance metadata.
 - Coarse grid fallbacks for debugging and fast previews.
 - SQLite persistence for projects, samples, and sampled embedding vectors.
 - Auto-saved project names backed by the API and SQLite.

@@ -2,6 +2,7 @@ const DEFAULT_CENTER = [25.36, 68.28];
 const DEFAULT_ZOOM = 9;
 const EMBEDDING_SOURCE = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL";
 const CLASS_PALETTE = ["#217a57", "#0d7080", "#b47712", "#b54040", "#315a96", "#6b5ca5", "#6a7d39"];
+const { buildExportFilename } = window.EoExportUtils;
 
 const state = {
   apiBase: "http://127.0.0.1:8080",
@@ -1514,6 +1515,7 @@ async function apiRequest(path, options = {}) {
 }
 
 function exportGeoJson() {
+  const generatedAt = new Date();
   const features = state.samples.map((sample) => {
     const sampleClass = state.classes.find((item) => item.id === sample.classId);
     return {
@@ -1534,14 +1536,42 @@ function exportGeoJson() {
       properties: { ...feature.properties, feature_type: "change_hotspot" },
     });
   });
-  downloadJson("alphaearth-evidence.geojson", { type: "FeatureCollection", features }, "application/geo+json");
+  const payload = {
+    type: "FeatureCollection",
+    metadata: {
+      schema_version: "1.0",
+      generated_at: generatedAt.toISOString(),
+      project: {
+        id: state.projectId,
+        name: els.projectName.value.trim(),
+        target_year: state.year,
+        baseline_year: state.startYear,
+      },
+      source: {
+        collection: EMBEDDING_SOURCE,
+        dimensions: 64,
+        native_resolution_m: 10,
+        earth_engine_project: state.eeProject,
+      },
+    },
+    features,
+  };
+  const filename = buildExportFilename({
+    projectName: els.projectName.value,
+    year: state.year,
+    kind: "evidence",
+    extension: "geojson",
+    date: generatedAt,
+  });
+  downloadJson(filename, payload, "application/geo+json");
   showToast("GeoJSON evidence exported");
 }
 
 function exportAnalysisPackage() {
+  const generatedAt = new Date();
   const report = {
     schema_version: "1.0",
-    generated_at: new Date().toISOString(),
+    generated_at: generatedAt.toISOString(),
     project: {
       id: state.projectId,
       name: els.projectName.value,
@@ -1566,7 +1596,14 @@ function exportAnalysisPackage() {
       classifier: els.modelSelect.value,
     },
   };
-  downloadJson("alphaearth-analysis-package.json", report, "application/json");
+  const filename = buildExportFilename({
+    projectName: els.projectName.value,
+    year: state.year,
+    kind: "analysis",
+    extension: "json",
+    date: generatedAt,
+  });
+  downloadJson(filename, report, "application/json");
   showToast("Analysis package exported");
 }
 
