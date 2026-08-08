@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web-tests:
+    name: Web tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run browser utility tests
+        run: node --test "apps/web/tests/*.test.js"
+
+  api-tests:
+    name: API tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+
+      - name: Install API dependencies
+        run: python -m pip install -e apps/api
+
+      - name: Run API tests
+        working-directory: apps/api
+        run: python -m unittest discover -s tests -v

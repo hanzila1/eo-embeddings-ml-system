@@ -8,6 +8,17 @@ This repository contains an operational, map-first AlphaEarth analysis workbench
 - `apps/api`: FastAPI service for projects, samples, embedding extraction, few-shot models, Earth Engine inference, and zonal analytics.
 - `docs`: architecture and AlphaEarth/Earth Engine workflow notes.
 
+## GitHub Deployment
+
+The static workbench is deployed from `apps/web` to:
+
+https://hanzila1.github.io/eo-embeddings-ml-system/
+
+Pushes to `main` automatically run the JavaScript and Python test suites. Changes to
+`apps/web` are then published through GitHub Pages. Pages hosts the browser client only;
+the FastAPI service and its Earth Engine credentials must be deployed separately for live
+analysis features.
+
 ## Product Direction
 
 The first product is a Few-Shot Embedding Mapper:
