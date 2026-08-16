@@ -19,6 +19,14 @@ Pushes to `main` automatically run the JavaScript and Python test suites. Change
 the FastAPI service and its Earth Engine credentials must be deployed separately for live
 analysis features.
 
+When the API is hosted away from the local machine, pass its URL to the published client:
+
+```text
+https://hanzila1.github.io/eo-embeddings-ml-system/?api=https%3A%2F%2Fapi.example.com
+```
+
+Without `api=`, local development continues to use `http://127.0.0.1:8080`.
+
 ## Product Direction
 
 The first product is a Few-Shot Embedding Mapper:

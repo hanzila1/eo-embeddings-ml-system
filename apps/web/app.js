@@ -4,8 +4,13 @@ const EMBEDDING_SOURCE = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL";
 const CLASS_PALETTE = ["#217a57", "#0d7080", "#b47712", "#b54040", "#315a96", "#6b5ca5", "#6a7d39"];
 const { buildExportFilename } = window.EoExportUtils;
 
+function resolveApiBase() {
+  const configuredApi = new URLSearchParams(window.location.search).get("api");
+  return (configuredApi?.trim() || "http://127.0.0.1:8080").replace(/\/+$/, "");
+}
+
 const state = {
-  apiBase: "http://127.0.0.1:8080",
+  apiBase: resolveApiBase(),
   apiOnline: false,
   eeReady: false,
   eeProject: null,
