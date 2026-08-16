@@ -971,6 +971,8 @@ function updateUi() {
 function updateConnectionUi() {
   els.apiStatus.textContent = state.apiOnline ? (state.eeReady ? "EE online" : "API online") : "Offline";
   els.apiChip.dataset.status = state.apiOnline ? "online" : "offline";
+  els.apiChip.title = `API endpoint: ${state.apiBase}`;
+  els.apiChip.setAttribute("aria-label", `${els.apiStatus.textContent}; API endpoint ${state.apiBase}`);
   els.connectionDot.dataset.state = state.apiOnline ? "online" : "offline";
   els.projectState.textContent = state.projectId ? "Saved" : "Local";
   els.footerApi.textContent = state.apiOnline ? "FastAPI online" : "API offline";

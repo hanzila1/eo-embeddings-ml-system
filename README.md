@@ -27,6 +27,9 @@ https://hanzila1.github.io/eo-embeddings-ml-system/?api=https%3A%2F%2Fapi.exampl
 
 Without `api=`, local development continues to use `http://127.0.0.1:8080`.
 
+The API status chip in the workbench header shows the configured endpoint when hovered,
+which makes it easy to confirm that a deployed client is using the intended backend.
+
 ## Product Direction
 
 The first product is a Few-Shot Embedding Mapper:
